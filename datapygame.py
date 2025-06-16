@@ -3,6 +3,7 @@ import sys
 import time
 import os #for path handling
 import random
+import PIL
 
 
 # Get the directory where the current script is located
@@ -13,30 +14,10 @@ TARGET_DIR = os.path.join(MEDIA_DIR, "targets")
 STIMULI_DIR = os.path.join(MEDIA_DIR, "stimuli")
 MASK_DIR = os.path.join(MEDIA_DIR, "gt")
 
-#mask
-from PIL import Image
-import numpy as np
-
-def get_clickable_rect(mask_path, stim_rect):
-    mask = Image.open(mask_path).convert("L")  # convert to greyscale
-    mask_array = np.array(mask)
-    
-    # find white pixels
-    white_pixels = np.argwhere(mask_array > 127)
-
-    y_min, x_min = white_pixels.min(axis=0)
-    y_max, x_max = white_pixels.max(axis=0)
-
-    rect_x = stim_rect.left + x_min
-    rect_y = stim_rect.top + y_min
-    rect_w = x_max - x_min
-    rect_h = y_max - y_min
-
-    return pygame.Rect(rect_x, rect_y, rect_w, rect_h)
 
 #initialise pygame
 pygame.init()
-screen = pygame.display.set_mode((700, 700))
+screen = pygame.display.set_mode((1280, 1080))
 pygame.display.set_caption("Object Search Game")
 screen_rect = screen.get_rect()
 
@@ -66,17 +47,6 @@ def show_image_for_ms(image, rect, ms):
 image1, image1_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image1.png")) # grayscale
 image3, image3_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image3.png")) # grayscale again
 
-
-# #image2 by placing panda centered on grayscale
-# image2 = image1.copy() #copying grayscale to avoid modifying og pic
-# grayrect = image2.get_rect() #get rect of grayscale image
-# panda_rect = image2_panda.get_rect() #get rect of panda image
-# #center panda on grayscale image
-# panda_rect.center = grayrect.center #aligning centers
-# image2.blit(image2_panda, panda_rect)
-# image2_rect = image2.get_rect()
-# image2_rect.center = screen_rect.center
-
 # # center image4
 # image4_rect = image4.get_rect()
 # image4_rect.center = screen_rect.center
@@ -104,6 +74,8 @@ for trial_num, idx in enumerate(available_indices, 1):
     show_image_for_ms(target_img, target_rect, 1500)
     show_image_for_ms(image3, image3_rect, 500)
     
+    gt_mask = pygame.image.load(os.path.join(MASK_DIR, f"gt{trial_num+1}.jpg")).convert()
+
     screen.fill((0,0,0))
     screen.blit(stim_img, stim_rect.topleft)
     pygame.display.flip()
@@ -142,16 +114,17 @@ for trial_num, idx in enumerate(available_indices, 1):
                 print(f"Trial {trial_num}: Mouse clicked at {click_pos}")
                 print(f"Reaction time: {reaction_time:.2f} seconds")
 
-                mask_path = os.path.join(MASK_DIR, f"gt{trial_num + 1}.jpg")
-                target_rect = get_clickable_rect(mask_path, stim_rect)
-
-                if target_rect.collidepoint(click_pos):
-                    print("Correct! You clicked on the object.")
-                    clicked = True
-                    game_over = True
-                else:
-                    print("Incorrect. Try again.")
-                    # clicked = True # no longer ends trial immediately on incorrect click
+                if 0 <= click_pos[0] < gt_mask.get_width() and 0 <= click_pos[1] < gt_mask.get_height():
+                    pixel = gt_mask.get_at(click_pos)  # Returns (R, G, B, A)
+                    if pixel[:3] == (255, 255, 255):  # Check if white
+                        print("Correct! You clicked on the object.")
+                        reaction_times.append(reaction_time)
+                        clicked = True
+                        game_over = False
+                    else:
+                        print("Incorrect. Try again.")
+                        reaction_times.append(reaction_time)
+                        clicked = False
 
         #timeout after 20000 ms (20 seconds)
         if (time.time() - start_time) > 20.0: #pygame uses ms, python uses s
@@ -168,6 +141,7 @@ print (f"\nAll trials completed. Average reaction time: {avg_rt: .2f} seconds")
 
 pygame.quit()
 sys.exit()
+
 
 
 
