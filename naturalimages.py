@@ -19,9 +19,9 @@ if len(script_path) != 0:
 
 # Get the directory where the current script is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-MEDIA_DIR = os.path.join(BASE_DIR, "images")
+MEDIA_DIR = os.path.join(BASE_DIR, "media")
 BACKGROUND_DIR = os.path.join(MEDIA_DIR, "backgrounds")
-TARGET_DIR = os.path.join(MEDIA_DIR, "target")
+TARGET_DIR = os.path.join(MEDIA_DIR, "targets")
 STIMULI_DIR = os.path.join(MEDIA_DIR, "stimuli")
 MASK_DIR = os.path.join(MEDIA_DIR, "gt")
 
@@ -34,7 +34,7 @@ full_screen = False
 
 
 scn_width, scn_height = 0, 0
-screen = pygame.display.set_mode((800, 600))
+screen = pygame.display.set_mode((1280, 1080))
 screen_rect = screen.get_rect()
 
 
@@ -403,22 +403,22 @@ def run_trial(trial_pars, trial_index):
 
    #function to display an image for a set duration
 
-def load_centered_on_background(foreground_path, background_rect):
-    image = pygame.image.load(foreground_path)
+def load_centered_image(path):
+    image = pygame.image.load(path)
     rect = image.get_rect()
-    rect.center = background_rect.center
+    rect.center = screen_rect.center
     return image, rect
 
-background, background_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image1.png")) # grayscale
+image1, image1_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image1.png")) # grayscale
 image3, image3_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image3.png")) # grayscale again
 
 def show_image_for_ms(image, rect, ms):
     screen.fill((0,0,0)) #clear screen
-    screen.blit(image, image1_rect)
+    screen.blit(image, rect.topleft)
     pygame.display.flip()
     start_time = pygame.time.get_ticks()
 
-    while pygame.time.get_ticks() - start_time < ms:
+    while pygame.time.get_ticks() - start_time < 1500:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
@@ -495,11 +495,11 @@ def setup_eyelink_backdrop(el_tracker, image, screen_width, screen_height):
     #
     # Use the code commented below to convert the image and send the backdrop
     #
-    pixels = [[image.get_at((i, j))[0:3] for i in range(scn_width)]
-              for j in range(scn_height)]
-    el_tracker.bitmapBackdrop(scn_width, scn_height, pixels,
-                              0, 0, scn_width, scn_height,
-                              0, 0, pylink.BX_MAXCONTRAST)
+    # pixels = [[image.get_at((i, j))[0:3] for i in range(scn_width)]
+    #           for j in range(scn_height)]
+    # el_tracker.bitmapBackdrop(scn_width, scn_height, pixels,
+    #                           0, 0, scn_width, scn_height,
+    #                           0, 0, pylink.BX_MAXCONTRAST)
 
     # OPTIONAL: draw landmarks on the Host screen
     # In addition to backdrop image, You may draw simples on the Host PC to use
@@ -596,60 +596,24 @@ def setup_eyelink_backdrop(el_tracker, image, screen_width, screen_height):
     ia_pars = (1, left, top, right, bottom, 'screen_center')
     el_tracker.sendMessage('!V IAREA RECTANGLE %d %d %d %d %d %s' % ia_pars)
 
+reaction_times = []
+
 def run_trial_loop(screen, image, target_rect, trial_num):
-    pygame.event.clear()
-    reaction_times = []
     start_time = time.time()
     clicked = False
     timeout = False
     clock = pygame.time.Clock()
     RT = -1
 
-    while not clicked and not timeout:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                click_pos = event.pos
-                reaction_time = time.time() - start_time
-                reaction_times.append(reaction_time)
+    error = el_tracker.isRecording()
+    if error is not pylink.TRIAL_OK:
+        el_tracker.sendMessage('tracker_disconnected')
+        abort_trial()
+        return error
 
-                print(f"Trial {trial_num}: Mouse clicked at {click_pos}")
-                print(f"Reaction time: {reaction_time:.2f} seconds")
-
-                if target_rect.collidepoint(click_pos):
-                    print("Correct! You clicked on the object.")
-                    clicked = True
-                else:
-                    print("Incorrect. Try again.")
-
-        if (time.time() - start_time) > 20:  # timeout after 20 seconds
-            print(f"Trial {trial_num}: Timeout! No click registered within 20s.")
-            reaction_times.append(20)  # max time for timeout
-            timeout = True
-
-        screen.fill((0, 0, 0))
-        screen.blit(image, (0, 0))
-        pygame.display.flip()
-        clock.tick(60)
-
-    while not clicked:
-        # present the picture for a maximum of 5 seconds
-        if pygame.time.get_ticks() - onset_time >= 5000:
-            el_tracker.sendMessage('time_out')
-            break
-
-        # abort the current trial if the tracker is no longer recording
-        error = el_tracker.isRecording()
-        if error is not pylink.TRIAL_OK:
-            el_tracker.sendMessage('tracker_disconnected')
-            abort_trial()
-            return error
-
-        # # check for keyboard events
-        # for ev in pygame.event.get():
-        #     # Stop stimulus presentation when the spacebar is pressed
+        # check for keyboard events
+        for ev in pygame.event.get():
+            # Stop stimulus presentation when the spacebar is pressed
             if (ev.type == KEYDOWN) and (ev.key == K_SPACE):
                 # send over a message to log the key press
                 el_tracker.sendMessage('key_pressed')
@@ -673,7 +637,7 @@ def run_trial_loop(screen, image, target_rect, trial_num):
                 if ev.mod in [KMOD_LCTRL, KMOD_RCTRL, 4160, 4224]:
                     el_tracker.sendMessage('terminated_by_user')
                     terminate_task()
-                    return pylink.ABORT_EXPT
+    #                 return pylink.ABORT_EXPT
 
     # clear the screen
     win.fill((128, 128, 128))
@@ -695,6 +659,70 @@ def run_trial_loop(screen, image, target_rect, trial_num):
     # send a 'TRIAL_RESULT' message to mark the end of trial, see Data
     # Viewer User Manual, "Protocol for EyeLink Data to Viewer Integration"
     el_tracker.sendMessage('TRIAL_RESULT %d' % pylink.TRIAL_OK)
+
+available_indices = list(range(1, NUM_TRIALS + 1))
+random.shuffle(available_indices)
+
+for trial_num, idx in enumerate(available_indices, 1):
+    print(f"\nStarting trial {trial_num} with image index {idx:03}")
+    target_path = os.path.join(TARGET_DIR, f"t{idx:03}.jpg")
+    stim_path = os.path.join(STIMULI_DIR, f"img{idx:03}.jpg")
+    target_img, target_rect = load_centered_image(target_path)
+    stim_img, stim_rect = load_centered_image(stim_path)
+
+    show_image_for_ms(image1, image1_rect, 500)
+    show_image_for_ms(target_img, target_rect, 1500)
+    show_image_for_ms(image3, image3_rect, 500)
+    
+    gt_mask = pygame.image.load(os.path.join(MASK_DIR, f"gt{idx}.jpg")).convert()
+
+    screen.fill((0,0,0))
+    screen.blit(stim_img, stim_rect.topleft)
+    pygame.display.flip()
+
+    start_time = time.time()
+    clicked = False
+    timeout = False
+    
+    while not clicked and not timeout:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                click_pos = event.pos
+                reaction_time = time.time() - start_time
+                reaction_times.append(reaction_time)
+
+                if 0 <= click_pos[0] < gt_mask.get_width() and 0 <= click_pos[1] < gt_mask.get_height():
+                    pixel = gt_mask.get_at(click_pos)  # Returns (R, G, B, A)
+                    if pixel[:3] == (255, 255, 255):  # Check if white
+                        print("Correct! You clicked on the object.")
+                        reaction_times.append(reaction_time)
+                        print(f"Reaction time: {reaction_time:.2f} seconds. Mouse clicked at {click_pos}")
+                        clicked = True
+                        game_over = False
+                    else:
+                        print("Incorrect. Try again.")
+                        reaction_times.append(reaction_time)
+                        clicked = False
+
+        if (time.time() - start_time) > 20.0:  # timeout after 20 seconds
+            print(f"Trial {trial_num}: Timeout! No click registered within 20s.")
+            reaction_times.append(20.0)  # max time for timeout
+            timeout = True
+
+
+    # while not get_keypress:
+    #     # present the picture for a maximum of 5 seconds
+    #     if pygame.time.get_ticks() - onset_time >= 5000:
+    #         el_tracker.sendMessage('time_out')
+    #         break
+
+        # abort the current trial if the tracker is no longer recording
+        
+
+    
 
 # Step 5: Set up the camera and calibrate the tracker
 
@@ -731,30 +759,13 @@ test_list = trials[:]*2
 
 # randomize the trial list
 # random.shuffle(test_list)
-available_indices = list(range(1, NUM_TRIALS + 1))
-random.shuffle(available_indices)
+
+    # clock.tick(60)
 
 trial_index = 1
 for trial_pars in test_list:
     run_trial(trial_pars, trial_index)
     trial_index += 1
-
-for trial_num, idx in enumerate(available_indices, 1):
-    print(f"\nStarting trial {trial_num} with image index {idx:03}")
-    target_path = os.path.join(TARGET_DIR, f"t{idx:03}.jpg")
-    stim_path = os.path.join(STIMULI_DIR, f"img{idx:03}.jpg")
-    target_img, target_rect = load_centered_image(target_path)
-    stim_img, stim_rect = load_centered_image(stim_path)
-
-    show_image_for_ms(image1, image1_rect, 500)
-    show_image_for_ms(target_img, target_rect, 1500)
-    show_image_for_ms(image3, image3_rect, 500)
-    
-    gt_mask = pygame.image.load(os.path.join(MASK_DIR, f"gt{idx}.jpg")).convert()
-
-    screen.fill((0,0,0))
-    screen.blit(stim_img, stim_rect.topleft)
-    pygame.display.flip()
 
 # Step 7: disconnect, download the EDF file, then terminate the task
 terminate_task()
