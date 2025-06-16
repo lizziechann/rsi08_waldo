@@ -4,12 +4,35 @@ import time
 import os #for path handling
 import random
 
+
 # Get the directory where the current script is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 MEDIA_DIR = os.path.join(BASE_DIR, "media")
 BACKGROUND_DIR = os.path.join(MEDIA_DIR, "backgrounds")
 TARGET_DIR = os.path.join(MEDIA_DIR, "targets")
 STIMULI_DIR = os.path.join(MEDIA_DIR, "stimuli")
+MASK_DIR = os.path.join(MEDIA_DIR, "gt")
+
+#mask
+from PIL import Image
+import numpy as np
+
+def get_clickable_rect(mask_path, stim_rect):
+    mask = Image.open(mask_path).convert("L")  # convert to greyscale
+    mask_array = np.array(mask)
+    
+    # find white pixels
+    white_pixels = np.argwhere(mask_array > 127)
+
+    y_min, x_min = white_pixels.min(axis=0)
+    y_max, x_max = white_pixels.max(axis=0)
+
+    rect_x = stim_rect.left + x_min
+    rect_y = stim_rect.top + y_min
+    rect_w = x_max - x_min
+    rect_h = y_max - y_min
+
+    return pygame.Rect(rect_x, rect_y, rect_w, rect_h)
 
 #initialise pygame
 pygame.init()
@@ -67,7 +90,7 @@ running = True
 game_over = False
 
 #shuffling image order
-available_indices = list(range(1, NUM_TRIALS))
+available_indices = list(range(1, NUM_TRIALS + 1))
 random.shuffle(available_indices)
 
 for trial_num, idx in enumerate(available_indices, 1):
@@ -119,11 +142,8 @@ for trial_num, idx in enumerate(available_indices, 1):
                 print(f"Trial {trial_num}: Mouse clicked at {click_pos}")
                 print(f"Reaction time: {reaction_time:.2f} seconds")
 
-                target_x = stim_rect.left + 12
-                target_y = stim_rect.top + 9
-                target_width = 75
-                target_height = 50
-                target_rect = pygame.Rect(target_x, target_y, target_width, target_height)
+                mask_path = os.path.join(MASK_DIR, f"gt{trial_num + 1}.jpg")
+                target_rect = get_clickable_rect(mask_path, stim_rect)
 
                 if target_rect.collidepoint(click_pos):
                     print("Correct! You clicked on the object.")
@@ -148,7 +168,6 @@ print (f"\nAll trials completed. Average reaction time: {avg_rt: .2f} seconds")
 
 pygame.quit()
 sys.exit()
-
 
 
 
