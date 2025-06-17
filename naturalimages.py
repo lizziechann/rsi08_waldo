@@ -29,7 +29,7 @@ MASK_DIR = os.path.join(MEDIA_DIR, "gt")
 pygame.init()
 
 
-dummy_mode = False
+dummy_mode = True
 full_screen = True
 
 
@@ -181,10 +181,10 @@ el_tracker.sendCommand("button_function 5 'accept_target_fixation'")
 # open a Pygame window
 win=None
 if full_screen:
-    win = pygame.display.set_mode((0, 0), FULLSCREEN | DOUBLEBUF, display= 1)
+    win = pygame.display.set_mode((0, 0), FULLSCREEN | DOUBLEBUF, display= 0)
     win_rect = win.get_rect()
 else:
-    win = pygame.display.set_mode((0, 0), 0, display= 1)
+    win = pygame.display.set_mode((0, 0), 0, display= 0)
     
 for event in pygame.event.get():
     if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -783,7 +783,3 @@ for trial_pars in test_list:
 
 # Step 7: disconnect, download the EDF file, then terminate the task
 terminate_task()
-
-
-
-
