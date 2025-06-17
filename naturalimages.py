@@ -12,10 +12,10 @@ from pygame.locals import *
 from CalibrationGraphicsPygame import CalibrationGraphics
 from string import ascii_letters, digits
 
-# Switch to the script folder
-script_path = os.path.dirname(sys.argv[0])
-if len(script_path) != 0:
-    os.chdir(script_path)
+# # Switch to the script folder
+# script_path = os.path.dirname(sys.argv[0])
+# if len(script_path) != 0:
+#     os.chdir(script_path)
 
 # Get the directory where the current script is located
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -31,8 +31,9 @@ pygame.init()
 
 dummy_mode = True
 full_screen = False
+image_scale = 0.6
 
-
+mouse_visible = True
 scn_width, scn_height = 0, 0
 screen = pygame.display.set_mode((1280, 1080))
 screen_rect = screen.get_rect()
@@ -191,7 +192,8 @@ for event in pygame.event.get():
         sys.exit()
 
 scn_width, scn_height = win.get_size()
-pygame.mouse.set_visible(True)  #mouse cursor
+scn_ratio = scn_width / scn_height 
+pygame.mouse.set_visible(mouse_visible) #mouse cursor
 
 
 # Pass the display pixel coordinates (left, top, right, bottom) to the tracker
@@ -239,7 +241,7 @@ genv.setPictureTarget(os.path.join('images', 'fixTarget.bmp'))
 #     error -- sound to play on failure or interruption
 # Each parameter could be ''--default sound, 'off'--no sound, or a wav file
 # e.g., genv.setCalibrationSounds('type.wav', 'qbeep.wav', 'error.wav')
-genv.setCalibrationSounds('', '', '')
+# genv.setCalibrationSounds('', '', '')
 
 # Request Pylink to use the Pygame window we opened above for calibration
 pylink.openGraphicsEx(genv)
@@ -312,7 +314,8 @@ def wait_key(key_list, duration=sys.maxsize):
                     sys.exit()
                     
     # clear the screen following each keyboard response
-    win.fill(genv.getBackgroundColor())
+    win_surf = win
+    win_surf.fill(genv.getBackgroundColor())
     pygame.display.flip()
 
     return resp
@@ -397,23 +400,42 @@ def run_trial(trial_pars, trial_index):
     trial_index - record the order of trial presentation in the task
     """
 
+    pygame.mouse.set_visible(mouse_visible)
+
     # unpacking the trial parameters
     cond, target_img, stim = trial_pars
 
 
    #function to display an image for a set duration
 
+
 def load_centered_image(path):
     image = pygame.image.load(path)
-    rect = image.get_rect()
-    rect.center = screen_rect.center
-    return image, rect
+    img_width, img_height = img.get_size()
+    img_ratio = img_width / img_height
+
+    if img_ratio > scn_ratio:
+        new_width = scn_width
+        new_height = int(scn_width / img_ratio)
+
+    else:
+        # Image is taller than screen
+        new_height = scn_height
+        new_width = int(scn_height * img_ratio)
+    new_width = int(new_width * image_scale)
+    new_height = int(new_height * image_scale)
+
+    img = pygame.transform.smoothscale(img, (new_width, new_height))
+    
+    x_offset = (scn_width - new_width) // 2
+    y_offset = (scn_height - new_height) // 2
+
 
 image1, image1_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image1.png")) # grayscale
 image3, image3_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image3.png")) # grayscale again
 
 def show_image_for_ms(image, rect, ms):
-    screen.fill((0,0,0)) #clear screen
+    screen.fill((128, 128, 128)) #clear screen
     screen.blit(image, rect.topleft)
     pygame.display.flip()
     start_time = pygame.time.get_ticks()
@@ -440,7 +462,7 @@ def show_image_for_ms(image, rect, ms):
     #         elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
     #             running = False
 
-        screen.fill((0, 0, 0))  # clear screen
+        screen.fill((128, 128, 128))  # clear screen
         screen.blit(image, rect)
         pygame.display.flip()
         pygame.time.Clock().tick(60)  # limit to ~60 FPS
@@ -458,7 +480,7 @@ def wait_for_escape_or_quit(screen, image, rect):
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
                 running = False
 
-        screen.fill((0, 0, 0))
+        screen.fill((128, 128, 128))
         screen.blit(image, rect.topleft)
         text_surface = font.render("Press ESC to quit", True, (255, 255, 255))
         screen.blit(text_surface, (100, 100))
@@ -565,7 +587,7 @@ def setup_eyelink_backdrop(el_tracker, image, screen_width, screen_height):
 
     # show the image
     win.fill((128, 128, 128))  # clear the screen
-    win.blit(image, (0, 0))
+    screen.blit(stim, stim_rect)
     pygame.display.flip()
     onset_time = pygame.time.get_ticks()  # image onset time
 
@@ -612,32 +634,33 @@ def run_trial_loop(screen, image, target_rect, trial_num):
         return error
 
         # check for keyboard events
-        for ev in pygame.event.get():
-            # Stop stimulus presentation when the spacebar is pressed
-            if (ev.type == KEYDOWN) and (ev.key == K_SPACE):
+    for ev in pygame.event.get():
+        # Stop stimulus presentation when the spacebar is pressed
+        if (ev.type == KEYDOWN) and (ev.key == K_SPACE):
                 # send over a message to log the key press
-                el_tracker.sendMessage('key_pressed')
+            el_tracker.sendMessage('key_pressed')
 
                 # # get response time in ms, PsychoPy report time in sec
                 # RT = pygame.time.get_ticks() - onset_time
                 # get_keypress = True
 
             # Abort a trial if "ESCAPE" is pressed
-            if (ev.type == KEYDOWN) and (ev.key == K_ESCAPE):
-                el_tracker.sendMessage('trial_skipped_by_user')
+        if (ev.type == KEYDOWN) and (ev.key == K_ESCAPE):
+            el_tracker.sendMessage('trial_skipped_by_user')
                 # clear the screen
-                win.fill((128, 128, 128))
-                pygame.display.flip()
+            win.fill((128, 128, 128))
+            pygame.display.flip()
                 # abort trial
-                abort_trial()
-                return pylink.SKIP_TRIAL
+            abort_trial()
+            return pylink.SKIP_TRIAL
 
             # Terminate the task if Ctrl-c
-            if (ev.type == KEYDOWN) and (ev.key == K_c):
-                if ev.mod in [KMOD_LCTRL, KMOD_RCTRL, 4160, 4224]:
-                    el_tracker.sendMessage('terminated_by_user')
-                    terminate_task()
-    #                 return pylink.ABORT_EXPT
+        if (ev.type == KEYDOWN) and (ev.key == K_c):
+            if ev.mod in [KMOD_LCTRL, KMOD_RCTRL, 4160, 4224]:
+                el_tracker.sendMessage('terminated_by_user')
+                terminate_task()
+                return pylink.ABORT_EXPT
+    pygame.mouse.set_visible(False)
 
     # clear the screen
     win.fill((128, 128, 128))
@@ -676,7 +699,7 @@ for trial_num, idx in enumerate(available_indices, 1):
     
     gt_mask = pygame.image.load(os.path.join(MASK_DIR, f"gt{idx}.jpg")).convert()
 
-    screen.fill((0,0,0))
+    screen.fill((128,128,128))
     screen.blit(stim_img, stim_rect.topleft)
     pygame.display.flip()
 
@@ -813,8 +836,6 @@ terminate_task()
 # #after all trials, calculate avg rxn time
 # avg_rt = sum(reaction_times)/ len(reaction_times)
 # print (f"\nAll trials completed. Average reaction time: {avg_rt: .2f} seconds")
-
-
 
 
 
