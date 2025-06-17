@@ -568,8 +568,8 @@ def setup_eyelink_backdrop(el_tracker, image, screen_width, screen_height):
     pylink.pumpDelay(100)
 
     # show the image
-    surf.fill((128, 128, 128))  # clear the screen
-    surf.blit(image, rect)
+    win.fill((128, 128, 128))  # clear the screen
+    win.blit(image, rect)
     pygame.display.flip()
     onset_time = pygame.time.get_ticks()  # image onset time
 
@@ -630,7 +630,7 @@ def run_trial_loop(screen, image, target_rect, trial_num):
             if (ev.type == KEYDOWN) and (ev.key == K_ESCAPE):
                 el_tracker.sendMessage('trial_skipped_by_user')
                 # clear the screen
-                surf.fill((128, 128, 128))
+                win.fill((128, 128, 128))
                 pygame.display.flip()
                 # abort trial
                 abort_trial()
@@ -645,7 +645,7 @@ def run_trial_loop(screen, image, target_rect, trial_num):
 pygame.mouse.set_visible(False)
 
     # clear the screen
-    surf.fill((128, 128, 128))
+    win.fill((128, 128, 128))
     pygame.display.flip()
     el_tracker.sendMessage('blank_screen')
     # send a message to clear the Data Viewer screen as well
