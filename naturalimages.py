@@ -49,7 +49,7 @@ for i in range(1, 240):
     target_img = f't{i}.jpg'
     stim = f'img{i}.jpg'
     trials.append([cond, target_img, stim])
-NUM_TRIALS = len(trials)
+num_trials = len(trials)
 
 # Set up EDF data file name and local data folder
 #
@@ -405,12 +405,46 @@ def run_trial(trial_pars, trial_index):
     # unpacking the trial parameters
     cond, target_img, stim = trial_pars
 
+    # load the image to display, here we stretch the image to fill full screen
+    target_img, target_rect = load_centered_image(target_path)
+    target_img_width, target_img_height = target_img.get_size()
+    target_img_ratio = target_img_width / target_img_height
+    # Scale while preserving aspect ratio
+    if target_img_ratio > scn_ratio:
+        # Image is wider than screen
+        new_width = scn_width
+        new_height = int(scn_width / target_img_ratio)
+    else:
+        # Image is taller than screen
+        new_height = scn_height
+        new_width = int(scn_height * target_img_ratio)
+    new_width = int(new_width * image_scale)
+    new_height = int(new_height * image_scale)
+
+    if trial_index == 1:
+        print(f'Screen ratio: {scn_ratio:.2f}')
+        print(f'Screen size: {scn_width}x{scn_height}')
+        print(f'Image scale factor: {image_scale:.2f}')
+    print(f'({trial_index}) Image ratio: {target_img_ratio:.2f}')
+    print(f'({trial_index}) Orig image size: {target_img_width}x{target_img_height}')
+    print(f'({trial_index}) New image size: {new_width}x{new_height}')
+
+    img = pygame.transform.smoothscale(img, (new_width, new_height))
+    x_offset = (scn_width - new_width) // 2
+    y_offset = (scn_height - new_height) // 2
+
+    # get the currently active window
+    surf = win
+
+ 
+    image1, image1_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image1.png")) # grayscale
+    image3, image3_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image3.png")) # grayscale again
 
    #function to display an image for a set duration
 
 
 def load_centered_image(path):
-    image = pygame.image.load(path)
+    img = pygame.image.load(path)
     img_width, img_height = img.get_size()
     img_ratio = img_width / img_height
 
@@ -431,8 +465,7 @@ def load_centered_image(path):
     y_offset = (scn_height - new_height) // 2
 
 
-image1, image1_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image1.png")) # grayscale
-image3, image3_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image3.png")) # grayscale again
+image, image_rect = load_centered_image(os.path.join(BACKGROUND_DIR, "image1.png")) # grayscale
 
 def show_image_for_ms(image, rect, ms):
     screen.fill((128, 128, 128)) #clear screen
@@ -467,7 +500,7 @@ def show_image_for_ms(image, rect, ms):
         pygame.display.flip()
         pygame.time.Clock().tick(60)  # limit to ~60 FPS
 
-def wait_for_escape_or_quit(screen, image, rect):
+def wait_for_escape_or_quit(screen, target, rect):
     running = True
     font = pygame.font.SysFont('Arial', 24)
     clock = pygame.time.Clock()
@@ -487,7 +520,7 @@ def wait_for_escape_or_quit(screen, image, rect):
         pygame.display.flip()
         clock.tick(60)
 
-def setup_eyelink_backdrop(el_tracker, image, screen_width, screen_height): 
+def setup_eyelink_backdrop(el_tracker, target, screen_width, screen_height): 
     # get a reference to the currently active EyeLink connection
     el_tracker = pylink.getEYELINK()
 
@@ -683,57 +716,57 @@ def run_trial_loop(screen, image, target_rect, trial_num):
     # Viewer User Manual, "Protocol for EyeLink Data to Viewer Integration"
     el_tracker.sendMessage('TRIAL_RESULT %d' % pylink.TRIAL_OK)
 
-available_indices = list(range(1, NUM_TRIALS + 1))
-random.shuffle(available_indices)
+# available_indices = list(range(1, NUM_TRIALS + 1))
+# random.shuffle(available_indices)
 
-for trial_num, idx in enumerate(available_indices, 1):
-    print(f"\nStarting trial {trial_num} with image index {idx:03}")
-    target_path = os.path.join(TARGET_DIR, f"t{idx:03}.jpg")
-    stim_path = os.path.join(STIMULI_DIR, f"img{idx:03}.jpg")
-    target_img, target_rect = load_centered_image(target_path)
-    stim_img, stim_rect = load_centered_image(stim_path)
+# for trial_num, idx in enumerate(available_indices, 1):
+#     print(f"\nStarting trial {trial_num} with image index {idx:03}")
+#     target_path = os.path.join(TARGET_DIR, f"t{idx:03}.jpg")
+#     stim_path = os.path.join(STIMULI_DIR, f"img{idx:03}.jpg")
+#     target_img, target_rect = load_centered_image(target_path)
+#     stim_img, stim_rect = load_centered_image(stim_path)
 
-    show_image_for_ms(image1, image1_rect, 500)
-    show_image_for_ms(target_img, target_rect, 1500)
-    show_image_for_ms(image3, image3_rect, 500)
+#     show_image_for_ms(image, image_rect, 500)
+#     show_image_for_ms(target_img, target_rect, 1500)
+#     show_image_for_ms(image, image_rect, 500)
     
-    gt_mask = pygame.image.load(os.path.join(MASK_DIR, f"gt{idx}.jpg")).convert()
+#     gt_mask = pygame.image.load(os.path.join(MASK_DIR, f"gt{idx}.jpg")).convert()
 
-    screen.fill((128,128,128))
-    screen.blit(stim_img, stim_rect.topleft)
-    pygame.display.flip()
+#     screen.fill((128,128,128))
+#     screen.blit(stim_img, stim_rect.topleft)
+#     pygame.display.flip()
 
-    start_time = time.time()
-    clicked = False
-    timeout = False
+#     start_time = time.time()
+#     clicked = False
+#     timeout = False
     
-    while not clicked and not timeout:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit()
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                click_pos = event.pos
-                reaction_time = time.time() - start_time
-                reaction_times.append(reaction_time)
+#     while not clicked and not timeout:
+#         for event in pygame.event.get():
+#             if event.type == pygame.QUIT:
+#                 pygame.quit()
+#                 sys.exit()
+#             elif event.type == pygame.MOUSEBUTTONDOWN:
+#                 click_pos = event.pos
+#                 reaction_time = time.time() - start_time
+#                 reaction_times.append(reaction_time)
 
-                if 0 <= click_pos[0] < gt_mask.get_width() and 0 <= click_pos[1] < gt_mask.get_height():
-                    pixel = gt_mask.get_at(click_pos)  # Returns (R, G, B, A)
-                    if pixel[:3] == (255, 255, 255):  # Check if white
-                        print("Correct! You clicked on the object.")
-                        reaction_times.append(reaction_time)
-                        print(f"Reaction time: {reaction_time:.2f} seconds. Mouse clicked at {click_pos}")
-                        clicked = True
-                        game_over = False
-                    else:
-                        print("Incorrect. Try again.")
-                        reaction_times.append(reaction_time)
-                        clicked = False
+#                 if 0 <= click_pos[0] < gt_mask.get_width() and 0 <= click_pos[1] < gt_mask.get_height():
+#                     pixel = gt_mask.get_at(click_pos)  # Returns (R, G, B, A)
+#                     if pixel[:3] == (255, 255, 255):  # Check if white
+#                         print("Correct! You clicked on the object.")
+#                         reaction_times.append(reaction_time)
+#                         print(f"Reaction time: {reaction_time:.2f} seconds. Mouse clicked at {click_pos}")
+#                         clicked = True
+#                         game_over = False
+#                     else:
+#                         print("Incorrect. Try again.")
+#                         reaction_times.append(reaction_time)
+#                         clicked = False
 
-        if (time.time() - start_time) > 20.0:  # timeout after 20 seconds
-            print(f"Trial {trial_num}: Timeout! No click registered within 20s.")
-            reaction_times.append(20.0)  # max time for timeout
-            timeout = True
+#         if (time.time() - start_time) > 20.0:  # timeout after 20 seconds
+#             print(f"Trial {trial_num}: Timeout! No click registered within 20s.")
+#             reaction_times.append(20.0)  # max time for timeout
+#             timeout = True
 
 
     # while not get_keypress:
@@ -789,6 +822,58 @@ trial_index = 1
 for trial_pars in test_list:
     run_trial(trial_pars, trial_index)
     trial_index += 1
+available_indices = list(range(1, num_trials + 1))
+random.shuffle(available_indices)
+
+for trial_num, idx in enumerate(available_indices, 1):
+    print(f"\nStarting trial {trial_num} with image index {idx:03}")
+    target_path = os.path.join(TARGET_DIR, f"t{idx:03}.jpg")
+    stim_path = os.path.join(STIMULI_DIR, f"img{idx:03}.jpg")
+    target_img, target_rect = load_centered_image(target_path)
+    stim_img, stim_rect = load_centered_image(stim_path)
+
+    show_image_for_ms(image, image_rect, 500)
+    show_image_for_ms(target_img, target_rect, 1500)
+    show_image_for_ms(image, image_rect, 500)
+    
+    gt_mask = pygame.image.load(os.path.join(MASK_DIR, f"gt{idx}.jpg")).convert()
+
+    screen.fill((128,128,128))
+    screen.blit(stim_img, stim_rect.topleft)
+    pygame.display.flip()
+
+    start_time = time.time()
+    clicked = False
+    timeout = False
+    
+    while not clicked and not timeout:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                sys.exit()
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                click_pos = event.pos
+                reaction_time = time.time() - start_time
+                reaction_times.append(reaction_time)
+
+                if 0 <= click_pos[0] < gt_mask.get_width() and 0 <= click_pos[1] < gt_mask.get_height():
+                    pixel = gt_mask.get_at(click_pos)  # Returns (R, G, B, A)
+                    if pixel[:3] == (255, 255, 255):  # Check if white
+                        print("Correct! You clicked on the object.")
+                        reaction_times.append(reaction_time)
+                        print(f"Reaction time: {reaction_time:.2f} seconds. Mouse clicked at {click_pos}")
+                        clicked = True
+                        game_over = False
+                    else:
+                        print("Incorrect. Try again.")
+                        reaction_times.append(reaction_time)
+                        clicked = False
+
+        if (time.time() - start_time) > 20.0:  # timeout after 20 seconds
+            print(f"Trial {trial_num}: Timeout! No click registered within 20s.")
+            reaction_times.append(20.0)  # max time for timeout
+            timeout = True
+
 
 # Step 7: disconnect, download the EDF file, then terminate the task
 terminate_task()
@@ -834,6 +919,8 @@ terminate_task()
 #         break
 
 # #after all trials, calculate avg rxn time
+# avg_rt = sum(reaction_times)/ len(reaction_times)
+# print (f"\nAll trials completed. Average reaction time: {avg_rt: .2f} seconds")
 # avg_rt = sum(reaction_times)/ len(reaction_times)
 # print (f"\nAll trials completed. Average reaction time: {avg_rt: .2f} seconds")
 
